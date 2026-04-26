@@ -1,0 +1,6 @@
+{
+  "name": "Miguel Train Times",
+  "description": "Una aplicación web que muestra tiempos de llegada del Metro de Barcelona con la estética del Metro de Madrid.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": []
+}

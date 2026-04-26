@@ -1,0 +1,24 @@
+@import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-led-green: #00FF41;
+  --color-led-red: #FF3131;
+  --font-mono: 'VT323', monospace;
+}
+
+.led-grid {
+  background-image: radial-gradient(circle, #333 1px, transparent 1px);
+  background-size: 4px 4px;
+}
+
+@keyframes scroll-left {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-100%); }
+}
+
+.animate-marquee {
+  display: inline-block;
+  animation: scroll-left 12s linear infinite;
+  will-change: transform;
+}
