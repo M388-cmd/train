@@ -26,17 +26,15 @@ async function startServer() {
       return res.status(400).json({ error: "Missing line or stationQuery parameters" });
     }
 
-    const tmbAppId = process.env.TMB_APP_ID;
-    const tmbAppKey = process.env.TMB_APP_KEY;
-
-    console.log('TMB_APP_ID:', tmbAppId);
-    console.log('TMB_APP_KEY:', tmbAppKey);
+    const tmbAppId = process.env.TMB_APP_ID || 'eba925f8';
+    const tmbAppKey = process.env.TMB_APP_KEY || '2464f8dbaaa79d87a408b049a5340f60';
 
     if (!tmbAppId || !tmbAppKey) {
       return res.status(500).json({ error: "TMB API keys not configured on server" });
     }
 
     try {
+      
       const api = tmb(tmbAppId, tmbAppKey);
       
       let resolvedStationIds = '122'; // fallback original
