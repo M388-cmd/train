@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: miguel-train-times
+    name: train-times3
     env: node
     plan: free
     buildCommand: npm install && npm run build
