@@ -34,60 +34,86 @@ async function startServer() {
       return res.status(500).json({ error: "TMB API keys not configured on server" });
     }
 
-    try {
-      
-      const api = tmb(tmbAppId, tmbAppKey);
-      
-      let resolvedStationIds = '122'; // fallback original
-      let foundStationName = '';
-      
-      // Check if it's L9 or L10 (lines with different search behavior)
-      const isL9orL10 = String(line).toUpperCase().includes('L9') || String(line).toUpperCase().includes('L10');
-      
-      if (isL9orL10) {
-        // Use station mapping for L9 Nord and L10 Sud
-        const stationCode = findStationCode(String(line), String(stationQuery));
-        if (stationCode) {
-          resolvedStationIds = String(stationCode);
-          foundStationName = String(stationQuery);
-        } else {
-          return res.status(404).json({ error: `No se encontró la estación "${stationQuery}" para la línea ${line}` });
-        }
-      } else {
-        // Use search API for other lines
-        const searchRes = await api.search.query(String(stationQuery), { entitats: api.search.ENTITATS.ESTACIONS, detail: true });
-        const searchItems = searchRes?.docs || searchRes?.items || [];
-        
-        if (searchItems.length > 0) {
-          const matchedItems = searchItems.filter((item: any) => 
-            item.icona && item.icona.includes(String(line))
-          );
-          if (matchedItems.length > 0) {
-            resolvedStationIds = matchedItems.map((st: any) => st.codi).join(',');
-            foundStationName = matchedItems[0].nom || String(stationQuery);
-          } else {
-            resolvedStationIds = searchItems[0].codi; // fallback
-            foundStationName = searchItems[0].nom || String(stationQuery);
-          }
-        } else {
-          return res.status(404).json({ error: `No se encontró la estación "${stationQuery}"` });
-        }
-      }
+      try {
+       
+       const api = tmb(tmbAppId, tmbAppKey);
+       
+       let resolvedStationIds = '122'; // fallback original
+       let foundStationName = '';
+       
+       // Check if it's L9 or L10 (lines with different search behavior)
+       const isL9orL10 = String(line).toUpperCase().includes('L9') || String(line).toUpperCase().includes('L10');
+       
+       if (isL9orL10) {
+         // Use station mapping for L9 Nord and L10 Sud
+         const stationCode = findStationCode(String(line), String(stationQuery));
+         if (stationCode) {
+           resolvedStationIds = String(stationCode);
+           foundStationName = String(stationQuery);
+         } else {
+           return res.status(404).json({ error: `No se encontró la estación "${stationQuery}" para la línea ${line}` });
+         }
+       } else {
+         // Use search API for other lines
+         const searchRes = await api.search.query(String(stationQuery), { entitats: api.search.ENTITATS.ESTACIONS, detail: true });
+         const searchItems = searchRes?.docs || searchRes?.items || [];
+         
+         if (searchItems.length > 0) {
+           const matchedItems = searchItems.filter((item: any) => 
+             item.icona && item.icona.includes(String(line))
+           );
+           if (matchedItems.length > 0) {
+             resolvedStationIds = matchedItems.map((st: any) => st.codi).join(',');
+             foundStationName = matchedItems[0].nom || String(stationQuery);
+           } else {
+             resolvedStationIds = searchItems[0].codi; // fallback
+             foundStationName = searchItems[0].nom || String(stationQuery);
+           }
+         } else {
+           return res.status(404).json({ error: `No se encontró la estación "${stationQuery}"` });
+         }
+       }
 
 const json = await api.http.get(`itransit/metro/estacions`, {
-          params: {
-              estacions: resolvedStationIds
-          }
-      });
+           params: {
+               estacions: resolvedStationIds
+           }
+       });
 
-      console.log('API response:', JSON.stringify(json).slice(0, 500));
+       console.log('API response:', JSON.stringify(json).slice(0, 1000));
 
-      res.json({
-        data: json,
-        stationName: foundStationName,
-        resolvedStationIds
-      });
-    } catch (error: any) {
+       // Transform L9/L10 response to a simpler format
+       let transformedData = json;
+       if (isL9orL10 && json.linies) {
+         const trains = [];
+         json.linies.forEach(l => {
+           if (l.estacions) {
+             l.estacions.forEach(est => {
+               if (est.linies_trajectes) {
+                 est.linies_trajectes.forEach(lt => {
+                   if (lt.propers_trens && lt.propers_trens.length > 0) {
+                     lt.propers_trens.forEach(t => {
+                       trains.push({
+                         ...t,
+                         linia: lt.nom_linia,
+                         desti: lt.desti_trajecte
+                       });
+                     });
+                   }
+                 });
+               }
+             });
+           }
+         });
+         transformedData = { trains: trains, stationName: foundStationName };
+       }
+
+       res.json({
+         data: transformedData,
+         stationName: foundStationName,
+         resolvedStationIds
+       });
+     } catch (error: any) {
       console.error("Error fetching TMB data:", error);
       res.status(500).json({ error: error.message || "Error procesando petición TMB" });
     }

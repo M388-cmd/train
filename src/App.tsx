@@ -54,29 +54,40 @@ export default function App() {
       
       const { data: json, stationName: foundStationName, resolvedStationIds } = await response.json();
       
-      // Búsqueda profunda de cualquier array de trenes/predicciones
-      const findArrays = (obj: any, arraysFound: any[] = []) => {
-         if (!obj) return arraysFound;
-         if (Array.isArray(obj)) {
-             arraysFound.push(obj);
-             obj.forEach(item => findArrays(item, arraysFound));
-         } else if (typeof obj === 'object') {
-             Object.values(obj).forEach(val => findArrays(val, arraysFound));
-         }
-         return arraysFound;
-      };
-
-      const arrays = findArrays(json);
-      
-      // Combinar todos los arrays encontrados
-      let parseableFeatures: any[] = [];
-      arrays.forEach(arr => {
-         arr.forEach((item: any) => {
-             if (item && typeof item === 'object') {
-                 parseableFeatures.push(item);
-             }
+       // Búsqueda profunda de cualquier array de trenes/predicciones
+       const findArrays = (obj: any, arraysFound: any[] = []) => {
+          if (!obj) return arraysFound;
+          if (Array.isArray(obj)) {
+              arraysFound.push(obj);
+              obj.forEach(item => findArrays(item, arraysFound));
+          } else if (typeof obj === 'object') {
+              Object.values(obj).forEach(val => findArrays(val, arraysFound));
+          }
+          return arraysFound;
+       };
+       
+       // Handle transformed L9/L10 data: { trains: [...] }
+       let transformedTrains: any[] = [];
+       if (json.trains && Array.isArray(json.trains)) {
+         transformedTrains = json.trains;
+       }
+       
+       const arrays = findArrays(json);
+       
+       // Combinar todos los arrays encontrados
+       let parseableFeatures: any[] = [];
+       
+       if (transformedTrains.length > 0) {
+         parseableFeatures = transformedTrains;
+       } else {
+         arrays.forEach(arr => {
+            arr.forEach((item: any) => {
+                if (item && typeof item === 'object') {
+                    parseableFeatures.push(item);
+                }
+            });
          });
-      });
+       }
 
       if (Object.keys(json).length > 0 && parseableFeatures.length === 0) {
           parseableFeatures = [json]; // Si no hay arrays, tratamos el root como feature
