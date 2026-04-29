@@ -85,25 +85,106 @@ export default function App() {
       if (parseableFeatures.length > 0) {
          let stationNameFallback = foundStationName ? foundStationName.toUpperCase() : `ESTACIÓN ${stationQuery || resolvedStationIds}`;
          let allMapped: Prediction[] = [];
-
+        
          for (const feature of parseableFeatures) {
              const properties = feature.properties || feature || {};
              
-             // Actualizar nombre de la estación (tomamos el del primero que tenga nombre)
+             // Actualizar nombre de la estación
              const name = properties.NOM_ESTACIO || properties.nom_estacio || properties.name || properties.nomEstacio;
              if (name && stationNameFallback === `ESTACIÓN ${stationQuery || resolvedStationIds}`) {
                  stationNameFallback = name.toUpperCase();
              }
-
-             let mapped: Prediction[] = [];
-             const possibleTrainKeys = ['trens', 'propers_trens', 'proper_tren', 'trains', 'predictions', 'PI', 'pi', 'trens_arribada'];
-             let foundTrains: any[] = [];
              
-             for (const key of possibleTrainKeys) {
-                 if (Array.isArray(properties[key])) {
-                     foundTrains = properties[key];
-                     break;
+             let featureTrains: any[] = [];
+             
+             // Estructura L9/L10: linies_trajectes[].propers_trens
+             if (properties.linies_trajectes && Array.isArray(properties.linies_trajectes)) {
+               properties.linies_trajectes.forEach((lt: any) => {
+                 if (lt.propers_trens && Array.isArray(lt.propers_trens)) {
+                   featureTrains = featureTrains.concat(lt.propers_trens.map((t: any) => ({
+                     ...t,
+                     linia: lt.nom_linia || lt.linia,
+                     desti: lt.desti_trajecte || lt.desti
+                   })));
                  }
+               });
+             }
+             
+             // Estructura estándar
+             if (featureTrains.length === 0) {
+               const possibleTrainKeys = ['trens', 'propers_trens', 'proper_tren', 'trains', 'predictions', 'PI', 'pi', 'trens_arribada'];
+               for (const key of possibleTrainKeys) {
+                   if (Array.isArray(properties[key])) {
+                       featureTrains = properties[key];
+                       break;
+                   }
+               }
+             }
+             
+             if (featureTrains.length > 0) {
+                 const mapped = featureTrains.map((item: any) => {
+                     let timeVal = item.temps_en_minuts || item.temps_arribada || item['t-in-min'] || item.tempsEsperat || item.timeInMin || item.min || 0;
+                     let calculatedMin = 0;
+                     let arrivalMs: number | null = null;
+                     
+                     if (timeVal > 1000000000000) {
+                        arrivalMs = timeVal;
+                        const diffMs = timeVal - Date.now();
+                        calculatedMin = Math.max(0, Math.round(diffMs / 60000));
+                     } else {
+                        calculatedMin = parseInt(timeVal, 10) || 0;
+                     }
+                     
+                     return {
+                         id: Math.random().toString(36).substring(7),
+                         routeId: item.linia || item.routeId || item.line || item.nomLinia || properties.nom_linia || line,
+                         destination: (item.destinacio || item.desti || item.destination || item.destino || item.desti_trajecte || 'DESTINO NO DISPONIBLE').toUpperCase(),
+                         timeInMin: calculatedMin,
+                         arrivalMs
+                     };
+                 });
+                 allMapped = allMapped.concat(mapped);
+             }
+         }
+         
+         setStationName(stationNameFallback);
+         allMapped.sort((a, b) => a.timeInMin - b.timeInMin);
+         setPredictions(allMapped);
+         
+      } else {
+                      calculatedMin = parseInt(timeVal, 10) || 0;
+                    }
+                    return {
+                      id: Math.random().toString(36).substring(7),
+                      routeId: item.linia || item.routeId || item.line || item.nomLinia || properties.nom_linia || line,
+                      destination: (item.destinacio || item.desti || item.destination || item.destino || tren.linies_trajectes?.[0]?.desti_trajecte || 'DESTINO NO DISPONIBLE').toUpperCase(),
+                      timeInMin: calculatedMin,
+                      arrivalMs
+                    };
+                  });
+                }
+              } else {
+                // Los trenes ya están en mapped (estructura L9/L10)
+                mapped = mapped.map((item: any) => {
+                  let timeVal = item.temps_en_minuts || item.temps_arribada || item['t-in-min'] || item.tempsEsperat || item.timeInMin || item.min || 0;
+                  let calculatedMin = 0;
+                  let arrivalMs: number | null = null;
+                  if (timeVal > 1000000000000) {
+                    arrivalMs = timeVal;
+                    const diffMs = timeVal - Date.now();
+                    calculatedMin = Math.max(0, Math.round(diffMs / 60000));
+                  } else {
+                    calculatedMin = parseInt(timeVal, 10) || 0;
+                  }
+                  return {
+                    id: Math.random().toString(36).substring(7),
+                    routeId: item.linia || item.routeId || item.line || item.nomLinia || properties.nom_linia || line,
+                    destination: (item.destinacio || item.desti || item.destination || item.destino || 'DESTINO NO DISPONIBLE').toUpperCase(),
+                    timeInMin: calculatedMin,
+                    arrivalMs
+                  };
+                });
+              }
              }
 
              if (foundTrains.length > 0) {
