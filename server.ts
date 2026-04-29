@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 import http from "http";
 
 import tmb from "tmb.js/src/tmb.js";
+import { findStationCode } from "./station-mapping.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,20 +41,37 @@ async function startServer() {
       let resolvedStationIds = '122'; // fallback original
       let foundStationName = '';
       
-      const searchRes = await api.search.query(String(stationQuery), { entitats: api.search.ENTITATS.ESTACIONS, detail: true });
-      if (searchRes && searchRes.items && searchRes.items.length > 0) {
-        const matchedItems = searchRes.items.filter((item: any) => 
-          item.icona && item.icona.includes(String(line))
-        );
-        if (matchedItems.length > 0) {
-          resolvedStationIds = matchedItems.map((st: any) => st.codi).join(',');
-          foundStationName = matchedItems[0].nom || String(stationQuery);
+      // Check if it's L9 or L10 (lines with different search behavior)
+      const isL9orL10 = String(line).toUpperCase().includes('L9') || String(line).toUpperCase().includes('L10');
+      
+      if (isL9orL10) {
+        // Use station mapping for L9 Nord and L10 Sud
+        const stationCode = findStationCode(String(line), String(stationQuery));
+        if (stationCode) {
+          resolvedStationIds = String(stationCode);
+          foundStationName = String(stationQuery);
         } else {
-          resolvedStationIds = searchRes.items[0].codi; // fallback
-          foundStationName = searchRes.items[0].nom || String(stationQuery);
+          return res.status(404).json({ error: `No se encontró la estación "${stationQuery}" para la línea ${line}` });
         }
       } else {
-        return res.status(404).json({ error: `No se encontró la estación "${stationQuery}"` });
+        // Use search API for other lines
+        const searchRes = await api.search.query(String(stationQuery), { entitats: api.search.ENTITATS.ESTACIONS, detail: true });
+        const searchItems = searchRes?.docs || searchRes?.items || [];
+        
+        if (searchItems.length > 0) {
+          const matchedItems = searchItems.filter((item: any) => 
+            item.icona && item.icona.includes(String(line))
+          );
+          if (matchedItems.length > 0) {
+            resolvedStationIds = matchedItems.map((st: any) => st.codi).join(',');
+            foundStationName = matchedItems[0].nom || String(stationQuery);
+          } else {
+            resolvedStationIds = searchItems[0].codi; // fallback
+            foundStationName = searchItems[0].nom || String(stationQuery);
+          }
+        } else {
+          return res.status(404).json({ error: `No se encontró la estación "${stationQuery}"` });
+        }
       }
 
 const json = await api.http.get(`itransit/metro/estacions`, {
