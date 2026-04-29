@@ -85,7 +85,7 @@ export default function App() {
       if (parseableFeatures.length > 0) {
          let stationNameFallback = foundStationName ? foundStationName.toUpperCase() : `ESTACIÓN ${stationQuery || resolvedStationIds}`;
          let allMapped: Prediction[] = [];
-        
+         
          for (const feature of parseableFeatures) {
              const properties = feature.properties || feature || {};
              
@@ -97,14 +97,15 @@ export default function App() {
              
              let featureTrains: any[] = [];
              
-             // Estructura L9/L10: linies_trajectes[].propers_trens
+             // Estructura L9/L10: linies_trajectes[].propers_trens[]
              if (properties.linies_trajectes && Array.isArray(properties.linies_trajectes)) {
                properties.linies_trajectes.forEach((lt: any) => {
                  if (lt.propers_trens && Array.isArray(lt.propers_trens)) {
                    featureTrains = featureTrains.concat(lt.propers_trens.map((t: any) => ({
                      ...t,
                      linia: lt.nom_linia || lt.linia,
-                     desti: lt.desti_trajecte || lt.desti
+                     destinacio: lt.desti_trajecte || lt.desti,
+                     temps_arribada: t.temps_arribada || t.temps_en_minuts
                    })));
                  }
                });
@@ -114,37 +115,65 @@ export default function App() {
              if (featureTrains.length === 0) {
                const possibleTrainKeys = ['trens', 'propers_trens', 'proper_tren', 'trains', 'predictions', 'PI', 'pi', 'trens_arribada'];
                for (const key of possibleTrainKeys) {
-                   if (Array.isArray(properties[key])) {
-                       featureTrains = properties[key];
-                       break;
-                   }
+                 if (Array.isArray(properties[key])) {
+                   featureTrains = properties[key];
+                   break;
+                 }
                }
              }
              
              if (featureTrains.length > 0) {
                  const mapped = featureTrains.map((item: any) => {
-                     let timeVal = item.temps_en_minuts || item.temps_arribada || item['t-in-min'] || item.tempsEsperat || item.timeInMin || item.min || 0;
-                     let calculatedMin = 0;
-                     let arrivalMs: number | null = null;
-                     
-                     if (timeVal > 1000000000000) {
-                        arrivalMs = timeVal;
-                        const diffMs = timeVal - Date.now();
-                        calculatedMin = Math.max(0, Math.round(diffMs / 60000));
-                     } else {
-                        calculatedMin = parseInt(timeVal, 10) || 0;
+                   let timeVal = item.temps_arribada || item.temps_en_minuts || item['t-in-min'] || item.tempsEsperat || item.timeInMin || item.min || 0;
+                   let calculatedMin = 0;
+                   let arrivalMs: number | null = null;
+                   
+                   if (timeVal > 1000000000000) {
+                     arrivalMs = timeVal;
+                     const diffMs = timeVal - Date.now();
+                     calculatedMin = Math.max(0, Math.round(diffMs / 60000));
+                   } else {
+                     calculatedMin = parseInt(timeVal, 10) || 0;
+                   }
+                   
+                   return {
+                     id: Math.random().toString(36).substring(7),
+                     routeId: item.linia || item.routeId || item.line || item.nomLinia || properties.nom_linia || line,
+                     destination: (item.destinacio || item.desti || item.destination || item.destino || 'DESTINO NO DISPONIBLE').toUpperCase(),
+                     timeInMin: calculatedMin,
+                     arrivalMs
+                   };
+                 });
+                 allMapped = allMapped.concat(mapped);
+             }
+         }
+         
+         setStationName(stationNameFallback);
+         allMapped.sort((a, b) => a.timeInMin - b.timeInMin);
+         setPredictions(allMapped);
+         
+      } else {
+                       // Standard structure
+                       timeVal = item.temps_en_minuts || item.temps_arribada || item['t-in-min'] || item.tempsEsperat || item.timeInMin || item.min || 0;
+                       if (timeVal > 1000000000000) {
+                         arrivalMs = timeVal;
+                         const diffMs = timeVal - Date.now();
+                         timeVal = Math.max(0, Math.round(diffMs / 60000));
+                       } else {
+                         timeVal = parseInt(timeVal, 10) || 0;
+                       }
                      }
                      
                      return {
                          id: Math.random().toString(36).substring(7),
                          routeId: item.linia || item.routeId || item.line || item.nomLinia || properties.nom_linia || line,
                          destination: (item.destinacio || item.desti || item.destination || item.destino || item.desti_trajecte || 'DESTINO NO DISPONIBLE').toUpperCase(),
-                         timeInMin: calculatedMin,
+                         timeInMin: timeVal,
                          arrivalMs
                      };
                  });
                  allMapped = allMapped.concat(mapped);
-             }
+               }
          }
          
          setStationName(stationNameFallback);
