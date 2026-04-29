@@ -342,19 +342,19 @@ export default function App() {
               <div className="absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-black/30 z-20 pointer-events-none mix-blend-overlay" />
               
               <div className="relative z-10 flex flex-col w-full h-full">
-                {loading && predictions.length === 0 ? (
-                   <div className="flex-1 flex items-center justify-center">
-                      <span className="text-[#00FF41] text-4xl md:text-5xl lg:text-6xl font-bold tracking-[0.2em] drop-shadow-[0_0_10px_rgba(0,255,65,0.4)] opacity-80 uppercase">
-                        CARGANDO...
-                      </span>
-                   </div>
-                ) : predictions.length === 0 && !error ? (
-                   <div className="flex-1 flex items-center justify-center text-center">
-                      <span className="text-[#FF3131] text-4xl md:text-5xl lg:text-6xl font-bold tracking-[0.2em] drop-shadow-[0_0_10px_rgba(255,49,49,0.4)] uppercase">
-                        FUERA DE SERVICIO
-                      </span>
-                   </div>
-                ) : (
+                 {loading && predictions.length === 0 ? (
+                    <div className="flex-1 flex items-center justify-center">
+                       <span className="text-[#00FF41] text-4xl md:text-5xl lg:text-6xl font-bold tracking-[0.2em] drop-shadow-[0_0_10px_rgba(0,255,65,0.4)] opacity-80 uppercase">
+                         CARGANDO...
+                       </span>
+                    </div>
+                 ) : predictions.length === 0 && !error ? (
+                    <div className="flex-1 flex items-center justify-center text-center">
+                       <span className="text-[#FF3131] text-4xl md:text-5xl lg:text-6xl font-bold tracking-[0.2em] drop-shadow-[0_0_10px_rgba(255,49,49,0.4)] uppercase">
+                         NO HAY TRENES PROGRAMADOS
+                       </span>
+                    </div>
+                 ) : (
                     <TeleindicadorDisplay predictions={predictions} incidentText={incidentText} />
                 )}
               </div>
